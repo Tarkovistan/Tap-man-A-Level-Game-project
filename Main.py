@@ -9,7 +9,7 @@ from enemy_class import enemy
 from menu_button_class import menu_button
 from non_animated_images import menubg, wall, bg, bg2, bg3, bubble, bubble_2 #icon, title, button
 
-print ("github")
+
 
 npcs = [pygame.image.load("Images/man_npc.png"), pygame.image.load("Images/lady_npc.png"),
         pygame.image.load("Images/old_man_npc.png")]
