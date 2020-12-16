@@ -10,5 +10,6 @@ bg3 = pygame.image.load("Images/bg3.png")   # NPC background
 bubble = pygame.image.load("Images/s_bubble_1.png") # Speech bubble
 bubble_2 = pygame.image.load("Images/s_bubble_2.png")
 button = pygame.image.load("Images/button.png")  # Menu button overlay.
-
+fireball2 = pygame.image.load("Images/fireball2.png") # Fireball (shot)
+fireball3 = pygame.image.load("Images/fireball3.png") # Fireball (shot)
 

@@ -1,15 +1,28 @@
 import pygame
 import sqlite3
 import random
+
 from main_menu_class import menu_player
 from npc_class import npc
 from projectiles_class import projectile
 from player_class import player
 from enemy_class import enemy
 from menu_button_class import menu_button
-from non_animated_images import menubg, wall, bg, bg2, bg3, bubble, bubble_2 #icon, title, button
+from non_animated_images import menubg, wall, bg, bg2, bg3, bubble, bubble_2, fireball2, \
+    fireball3  # icon, title, button
+from collectibles import collectibles
 
+connection = sqlite3.connect("sqlite.db")
 
+sqlcommand = """CREATE TABLE if not exists players (
+playerId int AUTO_INCREMENT,
+playerName varchar(255),
+PRIMARY KEY(playerId)
+);"""
+
+cursor = connection.cursor()
+
+cursor.execute(sqlcommand)
 
 npcs = [pygame.image.load("Images/man_npc.png"), pygame.image.load("Images/lady_npc.png"),
         pygame.image.load("Images/old_man_npc.png")]
@@ -26,18 +39,19 @@ run_l1 = False
 run_l2 = False
 run_l3 = False
 main_run = False
+collect_fireball = False
 
 font1 = pygame.font.SysFont("comicsans", 60, True)  # Font
 font2 = pygame.font.SysFont("comicsans", 25, True)  # NPC Font
 font3 = pygame.font.SysFont("comicsans", 20, True)  # Lady npc Font
-font_option = pygame.font.SysFont("comicsans", 30, True) # Option Font
+font_option = pygame.font.SysFont("comicsans", 30, True)  # Option Font
 
 play_text = font1.render("PLAY", 1, (0, 80, 0))
 quit_text = font1.render("QUIT", 1, (0, 80, 0))
-message1 = font2.render("Welcome adventurer!",1, (0, 0, 0))
+message1 = font2.render("Welcome adventurer!", 1, (0, 0, 0))
 message1_2 = font2.render("I hope you are liking it here...", 1, (0, 0, 0))
-message1_3 = font2.render("There's been sightings of goblins", 1,(0, 0, 0))
-message1_4= font2.render("lurking around the corner and", 1, (0, 0, 0))
+message1_3 = font2.render("There's been sightings of goblins", 1, (0, 0, 0))
+message1_4 = font2.render("lurking around the corner and", 1, (0, 0, 0))
 message1_5 = font2.render("we need you to get rid of some of", 1, (0, 0, 0))
 message1_6 = font2.render("those creatures, are you up for it?", 1, (0, 0, 0))
 option1 = font_option.render("Y - Yes I'm up for it", 1, (255, 255, 255))
@@ -55,26 +69,20 @@ message3 = font3.render("I see you are competent adventurer.", 1, (0, 0, 0))
 message3_2 = font3.render("Our village is looking up at you now", 1, (0, 0, 0))
 message3_3 = font3.render("The last wave of enemies was seen nearby and", 1, (0, 0, 0))
 message3_4 = font3.render("you're the man to do it. If you pull this off", 1, (0, 0, 0))
-message3_5 = font3.render("we will forever be in your service. However" ,1, (0, 0, 0))
+message3_5 = font3.render("we will forever be in your service. However", 1, (0, 0, 0))
 message3_6 = font3.render("I warn you, those things are... well, ", 1, (0, 0, 0))
 message3_7 = font3.render("something we haven't seen before. ", 1, (0, 0, 0))
-
-
 
 button_play = menu_button((W / 2) - 200, (H / 2) - 250, 100, 200)
 button_quit = menu_button((W / 2) - 200, (H / 2) + 50, 100, 200)
 
-
 menubgX = 0
 menubgX2 = menubg.get_width()  # Moving background
-
-
-
 
 shoot_loop = 0
 speed = 50
 score = 0
-
+levels_completed = 0
 
 player1 = menu_player(100, 445, 64, 64)  # Menu
 player2 = player(650, 600, 100, 100)  # Game
@@ -89,13 +97,13 @@ lady_npc_2 = npc(190, 190, 46, 84)  # After level is finished
 man_npc = npc(730, 530, 46, 84)  # Man NPC
 man_npc_2 = npc(730, 530, 46, 84)  # After level is finished
 
+enemy1 = enemy(1350, 545, 64, 64, 0, 2, 1, False)  # Game
+enemy2 = enemy(1350, 545, 64, 64, 0, 6, 1, False)  # Game
+enemy3 = enemy(1550, 545, 64, 64, 0, 6, 1, False)  # Game
+boss_enemy1 = enemy(1400, 545, 65, 65, 0, 2, 1, False)
+# enemy4 = enemy()
 
-enemy1 = enemy(1400, 545, 64, 64, 0)  # Game
-enemy2 = enemy(1400, 545, 64, 64, 0)  # Game
-enemy3 = enemy(1600, 545, 64, 64, 0)  # Game
-
-
-
+fireball1 = collectibles(1000, 545, 62, 71, False)
 
 
 def redraw_menu_window():
@@ -120,11 +128,10 @@ def redraw_game_window():
     player2.draw(win)
     man_npc.draw1(win)
     man_npc_2.draw1(win)
-    lady_npc.draw2(win)
     lady_npc_2.draw2(win)
     old_man_npc.draw3(win)
     old_man_npc_2.draw3(win)
-
+    lady_npc.draw2(win)
 
     if man_npc.talking:
         win.blit(bubble, (man_npc.x - 310, man_npc.y - 360))
@@ -137,7 +144,6 @@ def redraw_game_window():
 
         win.blit(option1, (20, 660))
         win.blit(option1_2, (20, 690))
-
 
     if lady_npc.talking:
         win.blit(bubble_2, (lady_npc.x - 20, lady_npc.y + 60))
@@ -157,16 +163,11 @@ def redraw_game_window():
         win.blit(message3_5, (old_man_npc.x - 280, old_man_npc.y - 180))
         win.blit(message3_6, (old_man_npc.x - 280, old_man_npc.y - 150))
 
-
-
-
     pygame.display.update()
 
 
 def redraw_game_2_window():
-
     win.blit(bg2, (0, 0))
-
     player3.draw(win)
     enemy1.draw(win)
     text = font1.render('Score: ' + str(score), 1, (0, 0, 0))
@@ -177,21 +178,46 @@ def redraw_game_2_window():
     if not enemy1.visible:
         enemy2.draw(win)
         enemy3.draw(win)
-    man_npc.draw1(win)
 
-    if not enemy1.visible and not  enemy2.visible and not enemy3.visible:
-        man_npc .visible = True
+    if not enemy1.visible and not enemy2.visible and not enemy3.visible:
+        man_npc.visible = True
         man_npc.x = 1000
         man_npc.draw1(win)
+
     pygame.display.update()
 
 
 def redraw_game_3_window():
+    global collect_fireball
+    fireball1.draw()
     win.blit(bg3, (0, 0))
+    text2 = font1.render('Score: ' + str(score), 1, (0, 0, 0))
+    win.blit(text2, (350, 10))
     player3.draw(win)
     enemy1.draw(win)
+    fireball1.draw()
+
+    if not enemy1.visible:
+        enemy2.draw(win)
+        enemy3.draw(win)
+        if not enemy2.visible and not enemy3.visible:
+            boss_enemy1.draw(win)
+            if not boss_enemy1.visible:
+                fireball1.visible = True
+                enemy1.draw(win)
+                enemy1.y = 1000
+
+    if not fireball1.visible and not enemy2.visible and not enemy3.visible and not boss_enemy1.visible:
+        lady_npc.visible = True
+        lady_npc.x = 600
+        lady_npc.y = 470
+        lady_npc.draw2(win)
+
     for bullet in bullets:
         bullet.draw(win)
+
+    for fireball in fireballs:
+        fireball.draw2(win)
 
     pygame.display.update()
 
@@ -204,8 +230,10 @@ def redraw_game_4_window():
 
 
 bullets = []
-enemies = [enemy1, enemy2, enemy3]
-npcs_l = [man_npc, lady_npc_2, old_man_npc_2]
+fireballs = []
+
+enemies = [enemy1, enemy2, enemy3, boss_enemy1]
+npcs_l = [man_npc, lady_npc, old_man_npc]
 
 while running:
 
@@ -270,9 +298,9 @@ while main_run:
 
                         if npcs_spoken_to == 0:
                             if npc == npcs_l[0]:
-                                man_npc.talking = True
+                                npcs_l[0].talking = True
                                 if keys[pygame.K_y]:
-                                    #npcs_spoken_to += 1
+                                    # npcs_spoken_to += 1
                                     man_npc.talking = False
                                     npc.visible = False
                                     run = False
@@ -285,14 +313,17 @@ while main_run:
                         if npcs_spoken_to == 0:
                             if npc == npcs_l[1]:
                                 print("Test")
-                                lady_npc.talking = True
+                                npcs_l[1].talking = True
                                 if keys[pygame.K_y]:
-                                    #npcs_spoken_to += 1
+                                    # npcs_spoken_to += 1
+                                    lady_npc.visible = False
                                     lady_npc.talking = False
-                                    npcs_l[1].visible = False
-                                    npc.talking = True
+                                    enemy1.empowered = True
+
                                     run = False
                                     run_l2 = True
+
+                                    player3.x = 600
 
                                 if keys[pygame.K_n]:
                                     player2.x = player2.x - 40
@@ -300,23 +331,17 @@ while main_run:
 
                         if npcs_spoken_to == 0:
                             if npc == npcs_l[2]:
-                                print("Test")
-                                old_man_npc.talking = True
+                                npcs_l[2].talking = True
                                 if keys[pygame.K_y]:
                                     old_man_npc.talking = False
                                     npcs_l[2].visible = False
-                                    npc.talking = True
+
                                     run = False
                                     run_l3 = True
 
                                 if keys[pygame.K_n]:
                                     player2.x = player2.x - 40
                                     old_man_npc.talking = False
-
-
-
-
-
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -331,7 +356,7 @@ while main_run:
 
         if not lady_npc.talking:
             if not old_man_npc.talking:
-                if not  man_npc.talking:
+                if not man_npc.talking:
 
                     if keys[pygame.K_LEFT] and player2.x > player2.vel:
                         player2.x -= player2.vel
@@ -377,25 +402,25 @@ while main_run:
         clock.tick(27)
         keys = pygame.key.get_pressed()
 
-
         if enemies[2].visible:
-            print ("visible")
+            print("visible")
         for enemy in enemies:
             if enemy.visible:
                 if player3.hitbox[1] < enemy.hitbox[1] + enemy.hitbox[3] and player3.hitbox[1] + player3.hitbox[3] > \
                         enemy.hitbox[1]:
-                    if player3.hitbox[0] + player3.hitbox[2] > enemy.hitbox[0] and player3.hitbox[0] < enemy.hitbox[
-                        0] + \
-                            enemy.hitbox[2]:
+                    if player3.hitbox[0] + player3.hitbox[2] > enemy.hitbox[0] and player3.hitbox[0] \
+                            < enemy.hitbox[0] + enemy.hitbox[2]:
                         player3.hit()
-                        score -= 5
 
+                        score -= 5
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run_l1 = False
                 run = True
-                player2.x = 650
+                # player2.x = 650
+                player2.x = man_npc_2.x - 80
+                player2.y = man_npc_2.y
 
         for bullet in bullets:
             for enemy in enemies:
@@ -408,7 +433,6 @@ while main_run:
                             enemy.hit()
                             score += 1
                             bullets.pop(bullets.index(bullet))
-
 
             if 1280 > bullet.x > 0:
                 bullet.x += bullet.vel
@@ -432,19 +456,38 @@ while main_run:
 
                 # Bullet appears a the centre of the player
             shoot_loop = 1
+        if enemy1.empowered:
+            print("empowered")
         if man_npc.visible:
             if player3.hitbox[1] < man_npc.hitbox[1] + man_npc.hitbox[3] and player3.hitbox[1] + \
                     player3.hitbox[3] > man_npc.hitbox[1]:
                 if player3.hitbox[0] + player3.hitbox[2] > man_npc.hitbox[0] and player3.hitbox[0] < \
                         man_npc.hitbox[0] + man_npc.hitbox[2]:
+                    player2.x = man_npc_2.x - 100
                     man_npc.visible = False
+                    print("visible")
+                    # enemy1.vel = 2
 
+                    enemy1.health = 10
+                    enemy2.health = 10
+                    enemy3.health = 10
+
+                    enemy1.x = 0
+                    enemy1.end = 1280
+
+                    enemy2.x = 0
+                    enemy2.end = 1280
+
+                    enemy3.x = 1280
+                    enemy3.end = 0
+
+                    bullets.clear()
                     enemy1.visible = True
+                    enemy2.visible = True
+                    enemy3.visible = True
 
                     run = True
                     run_l1 = False
-
-
 
         if keys[pygame.K_LEFT] and player3.x > player3.vel:
             player3.x -= player3.vel
@@ -488,35 +531,68 @@ while main_run:
     while run_l2:
         clock.tick(27)
         keys = pygame.key.get_pressed()
-        print (player3.vel)
-        if enemy1.visible:
-            if player3.hitbox[1] < enemy1.hitbox[1] + enemy1.hitbox[3] and player3.hitbox[1] + player3.hitbox[3] > \
-                    enemy1.hitbox[1]:
-                if player3.hitbox[0] + player3.hitbox[2] > enemy1.hitbox[0] and player3.hitbox[0] < enemy1.hitbox[0] + \
-                        enemy1.hitbox[2]:
-                    player3.hit()
-                    score -= 5
+        for enemy in enemies:
+
+            if enemy1.visible:
+                if player3.hitbox[1] < enemy1.hitbox[1] + enemy1.hitbox[3] and player3.hitbox[1] + player3.hitbox[3] > \
+                        enemy1.hitbox[1]:
+                    if player3.hitbox[0] + player3.hitbox[2] > enemy1.hitbox[0] and player3.hitbox[0] < enemy1.hitbox[
+                        0] + \
+                            enemy1.hitbox[2]:
+                        player3.hit()
+                        score -= 5
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run_l2 = False
-                run_l1 = False
                 run = True
-                player2.x = 650
-
+                player2.x = lady_npc_2.x + 80
+                player2.y = lady_npc_2.y + 85
         for bullet in bullets:
-            if bullet.y - bullet.radius < enemy1.hitbox[1] + enemy1.hitbox[3] and bullet.y + bullet.radius > \
-                    enemy1.hitbox[1]:
-                if bullet.x + bullet.radius > enemy1.hitbox[0] and bullet.x - bullet.radius < enemy1.hitbox[0] + \
-                        enemy1.hitbox[2]:
-                    enemy1.hit()
-                    score += 1
-                    bullets.pop(bullets.index(bullet))
+            for enemy in enemies:
+                if enemy.visible:
+                    if bullet.y - bullet.radius < enemy.hitbox[1] + enemy.hitbox[3] and bullet.y + bullet.radius > \
+                            enemy.hitbox[1]:
+                        if bullet.x + bullet.radius > enemy.hitbox[0] and bullet.x - bullet.radius < enemy.hitbox[0] + \
+                                enemy.hitbox[2]:
+                            if enemy.width <= 64:
+                                enemy.hit()
+                                score += 1
+                                bullets.pop(bullets.index(bullet))
+                            else:
+                                boss_enemy1.hit_boss()
+                                score += 1
+                                bullets.pop(bullets.index((bullet)))
 
             if 1280 > bullet.x > 0:
                 bullet.x += bullet.vel
             else:
                 bullets.pop(bullets.index(bullet))
+
+        for fireball in fireballs:
+            for enemy in enemies:
+
+                if enemy.visible:
+                    if fireball.y - fireball.radius < enemy.hitbox[1] + enemy.hitbox[
+                        3] and fireball.y + fireball.radius > \
+                            enemy.hitbox[1]:
+                        if fireball.x + fireball.radius > enemy.hitbox[0] and fireball.x - fireball.radius < \
+                                enemy.hitbox[0] + \
+                                enemy.hitbox[2]:
+                            if enemy.width <= 64:
+                                enemy.hit()
+                                score += 1
+                                fireballs.pop(fireballs.index(fireball))
+                            else:
+                                boss_enemy1.hit_boss()
+                                score += 1
+                                fireballs.pop(fireballs.index((fireball)))
+                print(fireball.x, fireball.y)
+
+            if 1280 > fireball.x > 0:
+                fireball.x += fireball.vel
+            else:
+                fireballs.pop(fireballs.index(fireball))
 
         if shoot_loop > 0:
             shoot_loop += 1
@@ -532,9 +608,68 @@ while main_run:
                     projectile(round((player3.x + player3.width // 2) - 20), round(player3.y + player3.height // 2), 6,
                                (0, 0, 0),
                                facing))
+        if keys[pygame.K_f] and shoot_loop == 0:
+            if player3.left:
+                facing = -1
+            else:
+                facing = 1
+            if len(fireballs) < 10:
+                fireballs.append(
+                    projectile(round((player3.x + player3.width // 2) - 20),
+                               round(player3.y + player3.height // 2) - 18, 6,
+                               (0, 0, 0),
+                               facing))
+
+                print("shot")
 
                 # Bullet appears at the centre of the player
             shoot_loop = 1
+        if lady_npc.visible:
+            if player3.hitbox[1] < lady_npc.hitbox[1] + lady_npc.hitbox[3] and player3.hitbox[1] + \
+                    player3.hitbox[3] > lady_npc.hitbox[1]:
+                if player3.hitbox[0] + player3.hitbox[2] > lady_npc.hitbox[0] and player3.hitbox[0] < \
+                        lady_npc.hitbox[0] + lady_npc.hitbox[2]:
+                    bullets.clear()
+
+                    enemy1.health = 10
+                    enemy2.health = 10
+                    enemy3.health = 10
+
+                    enemy1.x = 0
+                    enemy1.end = 1280
+
+                    enemy2.x = 0
+                    enemy2.end = 1280
+
+                    enemy3.x = 1280
+                    enemy3.end = 0
+
+                    bullets.clear()
+
+                    enemy1.empowered = True
+                    enemy2.empowered = True
+                    enemy3.empowered = True
+                    enemy1.visible = True
+                    enemy2.visible = True
+                    enemy3.visible = True
+                    lady_npc.visible = False
+                    levels_completed += 1
+                    run = True
+                    run_l2 = False
+
+        if fireball1.visible:
+            if player3.hitbox[1] < fireball1.hitbox[1] + fireball1.hitbox[3] and player3.hitbox[1] + player3.hitbox[3] > \
+                    fireball1.hitbox[1]:
+                if player3.hitbox[0] + player3.hitbox[2] > fireball1.hitbox[0] and player3.hitbox[0] < fireball1.hitbox[
+                    0] + \
+                        enemy1.hitbox[2]:
+                    collect_fireball = False
+                    enemy1.health = 10
+                    enemy1.visible = True
+                    enemy1.y = 1000
+                    print("touch")
+                    fireball1.visible = False
+
         if keys[pygame.K_LEFT] and player3.x > player3.vel:
             player3.x -= player3.vel
             player3.left = True
@@ -584,13 +719,16 @@ while main_run:
                 run = True
                 player2.x = 650
 
-
         for bullet in bullets:
             if bullet.y - bullet.radius < enemy1.hitbox[1] + enemy1.hitbox[3] and bullet.y + bullet.radius > \
                     enemy1.hitbox[1]:
                 if bullet.x + bullet.radius > enemy1.hitbox[0] and bullet.x - bullet.radius < enemy1.hitbox[0] + \
                         enemy1.hitbox[2]:
                     enemy1.hit()
+                    num2 = 0
+                    num2 += 1
+                    print(num2)
+
                     score += 1
                     bullets.pop(bullets.index(bullet))
 
@@ -657,5 +795,4 @@ while main_run:
         # if event.key == pygame.K_SPACE:
         # run2 = False
         # run = True
-
         redraw_game_4_window()
